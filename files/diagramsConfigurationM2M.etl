@@ -1,0 +1,43 @@
+pre {
+	var ePackName = Source!EPackage.all().first().name;
+	var theDiagramName = ePackName; 
+	var theConfiguration = new Target!PapyrusConfiguration;
+	var theDefaultPapyrusViewpoint = new Target!PapyrusViewpoint;
+	theDefaultPapyrusViewpoint.name = "Default Papyrus Viewpoint";
+	theConfiguration.viewpoints.add(theDefaultPapyrusViewpoint);
+	var theDiagram = new Target!PapyrusDiagram;
+	theDiagram.implementationId = "PapyrusUMLClassDiagram";
+	theDiagram.customPalette = "platform:/plugin/" + ePackName + "/resources/" + ePackName + ".paletteconfiguration";
+	theDiagram.customStyle = "platform:/plugin/" + ePackName + "/resources/" + ePackName + "diagram.css";
+	if (Source!EPackage.all().first().getEAnnotation("Diagram").isDefined()) {
+		if (Source!EPackage.all().first().getEAnnotation("Diagram").details.get("label").isDefined()) {
+			theDiagramName = Source!EPackage.all().first().getEAnnotation("Diagram").details.get("label");
+		}
+		if (Source!EPackage.all().first().getEAnnotation("Diagram").details.get("icon").isDefined()) {
+			theDiagram.icon = "platform:/plugin/" + ePackName + "/" + Source!EPackage.all().first().getEAnnotation("Diagram").details.get("icon");
+		}
+	}
+	theDiagram.name = "Papyrus " + theDiagramName + " Diagram";
+	theDefaultPapyrusViewpoint.modelKinds.add(theDiagram);
+	var theModelRule = new Target!ModelRule;
+	theModelRule.element = UMLEcore!EClass.all.selectOne(c|c.name = "Package");
+	theDiagram.modelRules.add(theModelRule);
+	var theOwningRule = new Target!OwningRule;
+	theOwningRule.element = UMLEcore!EClass.all.selectOne(c|c.name = "Package");
+	theDiagram.owningRules.add(theOwningRule);
+	var theChildRule = new Target!ChildRule;
+	theDiagram.childRules.add(theChildRule);
+	var thePaletteRule = new Target!PaletteRule;
+	thePaletteRule.permit = false;
+	thePaletteRule.element = "clazz.group.*";
+	theDiagram.paletteRules.add(thePaletteRule);
+	var theCategory = new Target!Category;
+	theCategory.name = ePackName;
+	theDiagram.categories.add(theCategory);
+	theConfiguration.categories.add(theCategory);
+	//var theDefaultStakeholder = DefaultConfig!Stakeholder.all.selectOne(s | s.name = "Default Modeler");
+	//var theDefaultStakeholder = new Target!Stakeholder;
+	//theDefaultStakeholder.println();
+	//theDefaultStakeholder.name = "Default Modeller";
+	//theConfiguration.stakeholders = theDefaultStakeholder;
+}

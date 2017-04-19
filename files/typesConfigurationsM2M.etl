@@ -1,0 +1,93 @@
+pre {
+	var ePackName = Source!EPackage.all().first().name;
+	var theConfiguration = new Target!ElementTypeSetConfiguration;
+	theConfiguration.metamodelNsUri = "http://www.eclipse.org/uml2/5.0.0/UML";
+	theConfiguration.identifier = ePackName + ".types";
+}
+
+rule class2Shape 
+transform c : Source!EClass 
+to stc : Target!SpecializationTypeConfiguration {
+guard : c.getEAnnotation("Node").isDefined()
+	var base = c.getEAnnotation("Node").details.get("base").firstToUpperCase();
+	stc.name = c.name;
+	stc.hint = "UML::" + base;
+	stc.identifier = ePackName + "." + c.name;
+	stc.specializedTypesId.add("org.eclipse.papyrus.uml." + base);
+	var theIconEntry = new Target!IconEntry;
+	theIconEntry.iconPath = "/icons/full/obj16/" + base + ".gif";
+	theIconEntry.bundleId = "org.eclipse.uml2.uml.edit";
+	stc.iconEntry = theIconEntry;
+	theConfiguration.elementTypeConfigurations.add(stc);
+	var theSamc = new Target!StereotypeApplicationMatcherConfiguration;
+	stc.matcherConfiguration = theSamc;
+	
+	var theSac = new Target!ApplyStereotypeAdviceConfiguration;
+	theSac.identifier = ePackName + "." + c.name.toLowerCase();
+	theSac.target = stc;
+	var theStereotypeToApply = new Target!StereotypeToApply;
+	theStereotypeToApply.requiredProfiles.add(ePackName);
+	theStereotypeToApply.updateName = true;
+	theStereotypeToApply.stereotypeQualifiedName = ePackName + "::" + c.name;
+	theSac.stereotypesToApply.add(theStereotypeToApply);
+	theSamc.stereotypesQualifiedNames.add(theStereotypeToApply.stereotypeQualifiedName); 
+	theConfiguration.adviceBindingsConfigurations.add(theSac);
+}
+
+rule associationClass2Shape 
+transform c : Source!EClass 
+to stc : Target!SpecializationTypeConfiguration {
+guard : c.getEAnnotation("Edge").isDefined()
+	var base = c.getEAnnotation("Edge").details.get("base").firstToUpperCase();
+	stc.name = c.name;
+	stc.hint = "UML::" + base;
+	stc.identifier = ePackName + "." + c.name;
+	stc.specializedTypesId.add("org.eclipse.papyrus.uml." + base);
+	var theIconEntry = new Target!IconEntry;
+	theIconEntry.iconPath = "/icons/full/obj16/" + base + ".gif";
+	theIconEntry.bundleId = "org.eclipse.uml2.uml.edit";
+	stc.iconEntry = theIconEntry;
+	theConfiguration.elementTypeConfigurations.add(stc);
+	var theSamc = new Target!StereotypeApplicationMatcherConfiguration;
+	stc.matcherConfiguration = theSamc;
+	
+	var theSac = new Target!ApplyStereotypeAdviceConfiguration;
+	theSac.identifier = ePackName + "." + c.name.toLowerCase();
+	theSac.target = stc;
+	var theStereotypeToApply = new Target!StereotypeToApply;
+	theStereotypeToApply.requiredProfiles.add(ePackName);
+	theStereotypeToApply.updateName = true;
+	theStereotypeToApply.stereotypeQualifiedName = ePackName + "::" + c.name;
+	theSac.stereotypesToApply.add(theStereotypeToApply);
+	theSamc.stereotypesQualifiedNames.add(theStereotypeToApply.stereotypeQualifiedName); 
+	theConfiguration.adviceBindingsConfigurations.add(theSac);
+}
+
+rule refEdge2Tool
+	transform ref : Source!EReference 
+	to stc : Target!SpecializationTypeConfiguration {
+	guard : ref.getEAnnotation("Edge").isDefined()
+	var base = ref.getEAnnotation("Edge").details.get("base").firstToUpperCase();
+	stc.name = ref.name;
+	stc.hint = "UML::" + base;
+	stc.identifier = ePackName + "." + ref.name;
+	stc.specializedTypesId.add("org.eclipse.papyrus.uml." + base);
+	var theIconEntry = new Target!IconEntry;
+	theIconEntry.iconPath = "/icons/full/obj16/" + base + ".gif";
+	theIconEntry.bundleId = "org.eclipse.uml2.uml.edit";
+	stc.iconEntry = theIconEntry;
+	theConfiguration.elementTypeConfigurations.add(stc);
+	var theSamc = new Target!StereotypeApplicationMatcherConfiguration;
+	stc.matcherConfiguration = theSamc;
+	
+	var theSac = new Target!ApplyStereotypeAdviceConfiguration;
+	theSac.identifier = ePackName + "." + ref.name.toLowerCase();
+	theSac.target = stc;
+	var theStereotypeToApply = new Target!StereotypeToApply;
+	theStereotypeToApply.requiredProfiles.add(ePackName);
+	theStereotypeToApply.updateName = true;
+	theStereotypeToApply.stereotypeQualifiedName = ePackName + "::" + ref.name;
+	theSac.stereotypesToApply.add(theStereotypeToApply);
+	theSamc.stereotypesQualifiedNames.add(theStereotypeToApply.stereotypeQualifiedName); 
+	theConfiguration.adviceBindingsConfigurations.add(theSac);
+}

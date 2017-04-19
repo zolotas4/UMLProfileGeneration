@@ -1,0 +1,78 @@
+pre {
+	var ePackName = Source!EPackage.all().first().name;
+	var thePaletteDefition = new Target!t_paletteDefinition;
+	Target.root = thePaletteDefition;
+	var theContent = new Target!t_content;
+	thePaletteDefition.appendChild(theContent);
+	var theDrawer = new Target!t_drawer;
+	theDrawer.a_iconpath = "/icons/f.gif";
+	theDrawer.a_id = ePackName + "_Drawer";
+	theDrawer.a_name = ePackName;
+	theContent.appendChild(theDrawer);
+}
+
+rule class2stereotype 
+	transform c : Source!EClass 
+	to at : Target!t_aspectTool {
+	guard : c.getEAnnotation("Class").isDefined()
+	at.a_description = "Create a " + c.name + " (Class)";
+	at.a_id = "clazz.tool.class_" + c.name + "_" + c.name;
+	at.a_name = c.name + " (Class)";
+	at.a_refToolId="clazz.tool.class";
+	if (c.getEAnnotation("Class").details.get("icon").isDefined()) {
+		at.a_iconpath = "platform:/plugin/" + ePackName + "/" + c.getEAnnotation("Class").details.get("icon");
+	}
+	var thePostAction = new Target!t_postAction;
+	thePostAction.a_id="org.eclipse.papyrus.applystereotypeactionprovider";
+	var theStereotypesToApply = new Target!t_stereotypesToApply;
+	thePostAction.appendChild(theStereotypesToApply);
+	var theStereotype = new Target!t_stereotype;
+	theStereotype.a_stereotypeName = ePackName + "::" + c.name;
+	theStereotypesToApply.appendChild(theStereotype);
+	at.appendChild(thePostAction);
+	theDrawer.appendChild(at);
+}
+
+rule classAssociation2stereotype 
+	transform c : Source!EClass 
+	to at : Target!t_aspectTool {
+	guard : c.getEAnnotation("Association").isDefined()
+		at.a_description = "Create a " + c.name + " (Association)";
+		at.a_id = "clazz.tool.association_" + c.name + "_" + c.name;
+		at.a_name = c.name + " (Association)";
+		at.a_refToolId="clazz.tool.association";
+		if (c.getEAnnotation("Association").details.get("icon").isDefined()) {
+			at.a_iconpath = "platform:/plugin/" + ePackName + "/" + c.getEAnnotation("Association").details.get("icon");
+		}
+		var thePostAction = new Target!t_postAction;
+		thePostAction.a_id="org.eclipse.papyrus.applystereotypeactionprovider";
+		var theStereotypesToApply = new Target!t_stereotypesToApply;
+		thePostAction.appendChild(theStereotypesToApply);
+		var theStereotype = new Target!t_stereotype;
+		theStereotype.a_stereotypeName = ePackName + "::" + c.name;
+		theStereotypesToApply.appendChild(theStereotype);
+		at.appendChild(thePostAction);
+		theDrawer.appendChild(at);
+}
+
+rule eRef2stereotype 
+	transform ref : Source!EReference 
+	to at : Target!t_aspectTool  { 
+	guard : ref.getEAnnotation("Association").isDefined() 
+		at.a_description = "Create a " + ref.name + " (Association)";
+		at.a_id = "clazz.tool.association_" + ref.name + "_" + ref.name;
+		at.a_name = ref.name + " (Association)";
+		at.a_refToolId="clazz.tool.association";
+		if (ref.getEAnnotation("Association").details.get("icon").isDefined()) {
+			at.a_iconpath = "platform:/plugin/" + ePackName + "/" + ref.getEAnnotation("Association").details.get("icon");
+		}
+		var thePostAction = new Target!t_postAction;
+		thePostAction.a_id="org.eclipse.papyrus.applystereotypeactionprovider";
+		var theStereotypesToApply = new Target!t_stereotypesToApply;
+		thePostAction.appendChild(theStereotypesToApply);
+		var theStereotype = new Target!t_stereotype;
+		theStereotype.a_stereotypeName = ePackName + "::" + ref.name;
+		theStereotypesToApply.appendChild(theStereotype);
+		at.appendChild(thePostAction);
+		theDrawer.appendChild(at);
+}

@@ -1,0 +1,66 @@
+pre {
+	var ePackName = Source!EPackage.all().first().name;
+	if (Source!EPackage.all().first().getEAnnotation("diagram").isDefined()) {
+		var theDiagramName = Source!EPackage.all().first().getEAnnotation("diagram").details.get("label");
+	} 
+	
+	var thePlugin = new Target!t_plugin;
+	Target.root = thePlugin;
+	
+	var theUMLProfileExtention = new Target!t_extension;
+	theUMLProfileExtention.a_point = "org.eclipse.papyrus.uml.extensionpoints.UMLProfile";
+	thePlugin.appendChild(theUMLProfileExtention);
+	var theProfile = new Target!t_profile;
+	theProfile.a_description = ePackName + " Profile";
+	theProfile.a_name = ePackName + " Profile";
+	theProfile.a_path = "pathmap://resources/" + ePackName + "/model.profile.uml";
+	theProfile.a_provider = "Epsilon";
+	theUMLProfileExtention.appendChild(theProfile);
+	
+	var theUriMappingExtension = new Target!t_extension;
+	theUriMappingExtension.a_point = "org.eclipse.emf.ecore.uri_mapping";
+	thePlugin.appendChild(theUriMappingExtension);
+	var theMapping = new Target!t_mapping;
+	theMapping.a_source = "pathmap://resources/" + ePackName + "/";
+	theMapping.a_target = "platform:/plugin/" + ePackName + "/";
+	theUriMappingExtension.appendChild(theMapping);
+	
+	var theViewpointsPolicyExtension = new Target!t_extension;
+	theViewpointsPolicyExtension.a_point = "org.eclipse.papyrus.infra.viewpoints.policy.custom";
+	thePlugin.appendChild(theViewpointsPolicyExtension);
+	var theViewpointContribution = new Target!t_contribution;
+	theViewpointsPolicyExtension.appendChild(theViewpointContribution);
+	theViewpointContribution.a_file = "resources/" + ePackName + "diagrams.configuration";
+	theViewpointContribution.a_original = "platform:/plugin/org.eclipse.papyrus.infra.viewpoints.policy/builtin/default.configuration";
+	
+	var theElementTypeSetConfigurationExtension = new Target!t_extension;
+	theElementTypeSetConfigurationExtension.a_point = "org.eclipse.papyrus.infra.types.core.elementTypeSetConfiguration";
+	thePlugin.appendChild(theElementTypeSetConfigurationExtension);
+	var theElementTypeSet = new Target!t_elementTypeSet;
+	theElementTypeSet.a_clientContextID = "org.eclipse.papyrus.infra.services.edit.TypeContext";
+	theElementTypeSet.a_path = "resources/diagramshapes.elementtypesconfigurations";
+	theElementTypeSetConfigurationExtension.appendChild(theElementTypeSet);
+	
+	var theSecondElementTypeSetConfigurationExtension = new Target!t_extension;
+	theSecondElementTypeSetConfigurationExtension.a_point = "org.eclipse.papyrus.infra.types.core.elementTypeSetConfiguration";
+	thePlugin.appendChild(theSecondElementTypeSetConfigurationExtension);
+	var theSecondElementTypeSet = new Target!t_elementTypeSet;
+	theSecondElementTypeSet.a_clientContextID = "org.eclipse.papyrus.infra.services.edit.TypeContext";
+	theSecondElementTypeSet.a_path = "resources/modelelement.typesconfigurations";
+	theSecondElementTypeSetConfigurationExtension.appendChild(theSecondElementTypeSet);
+	
+	/*
+	var thePaletteExtension = new Target!t_extension;
+	thePaletteExtension.a_point = "org.eclipse.papyrus.uml.diagram.common.paletteDefinition";
+	thePlugin.appendChild(thePaletteExtension);
+	var thePaletteDefinition = new Target!t_paletteDefinition;
+	thePaletteDefinition.a_ID = ePackName + ".palette";
+	thePaletteDefinition.a_class = "org.eclipse.papyrus.uml.diagram.common.service.PluginPaletteProvider";
+	thePaletteDefinition.a_name = ePackName + " Diagram Elements";
+	thePaletteDefinition.a_path = "palette.xml";
+	var thePriority = new Target!t_Priority;
+	thePriority.a_name = "Medium";
+	thePaletteDefinition.appendChild(thePriority);
+	thePaletteExtension.appendChild(thePaletteDefinition);
+	*/
+}

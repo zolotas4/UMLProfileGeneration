@@ -1,0 +1,16 @@
+Class > Compartment {
+	visible:false;
+}
+
+Class > Compartment[type="compartment_shape_display"] {
+	visible:true;
+	showTitle:false;
+}
+
+Class {
+	maintainSymbolRatio:false;
+	fillColor:white;
+	displayBorder:false;
+	displayName:true;
+	followSVGSymbol:true;
+}

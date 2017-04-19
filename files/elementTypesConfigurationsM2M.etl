@@ -1,0 +1,51 @@
+pre {
+	var ePackName = Source!EPackage.all().first().name;
+	var theConfiguration = new Target!ElementTypeSetConfiguration;
+	theConfiguration.name = ePackName + " shape element nodes and edges";
+	theConfiguration.metamodelNsUri = "http://www.eclipse.org/uml2/5.0.0/UML";
+	theConfiguration.identifier = ePackName + ".elementTypes";
+}
+
+rule class2Shape 
+transform c : Source!EClass 
+to stc : Target!SpecializationTypeConfiguration {
+guard : c.getEAnnotation("Node").isDefined()
+	var base = c.getEAnnotation("Node").details.get("base").firstToUpperCase();
+	var hint = base + "_Shape";
+	// These 3 meta-elements don't have a special shape but they re-use the named element default shape.
+	if ((base.toLowerCase() = "collaboration") or (base.toLowerCase() = "opaquebehavior") or (base.toLowerCase() = "usecase")) {
+		hint = "NamedElement_DefaultShape";
+	}
+	stc.name = c.name + " shape";
+	stc.hint = hint;
+	stc.identifier = ePackName + "." + c.name + "_Shape";
+	stc.specializedTypesId.add(ePackName + "." + c.name);
+	stc.specializedTypesId.add("org.eclipse.papyrus.umldi." + hint);
+	theConfiguration.elementTypeConfigurations.add(stc);
+}
+
+rule associationClass2Shape 
+transform c : Source!EClass 
+to stc : Target!SpecializationTypeConfiguration {
+guard : c.getEAnnotation("Edge").isDefined()
+	var base = c.getEAnnotation("Edge").details.get("base").firstToUpperCase();
+	stc.name = c.name + " edge";
+	stc.hint = base + "_Edge";
+	stc.identifier = ePackName + "." + c.name + "_Edge";
+	stc.specializedTypesId.add(ePackName + "." + c.name);
+	stc.specializedTypesId.add("org.eclipse.papyrus.umldi." + base + "_Edge");
+	theConfiguration.elementTypeConfigurations.add(stc);
+}
+
+rule refEdge2Tool
+transform ref : Source!EReference 
+to stc : Target!SpecializationTypeConfiguration {
+guard : ref.getEAnnotation("Edge").isDefined()
+	var base = ref.getEAnnotation("Edge").details.get("base").firstToUpperCase();
+	stc.name = ref.name + " edge";
+	stc.hint = base + "_Edge";
+	stc.identifier = ePackName + "." + ref.name + "_Edge";
+	stc.specializedTypesId.add(ePackName + "." + ref.name);
+	stc.specializedTypesId.add("org.eclipse.papyrus.umldi." + base + "_Edge");
+	theConfiguration.elementTypeConfigurations.add(stc);
+}

@@ -1,0 +1,26 @@
+[%
+var ePackName = Source!EPackage.all().first().name;
+var allAnnotatedClasses = Source!EClass.all().select(c|c.getEAnnotation("Node").isDefined() or c.getEAnnotation("Edge").isDefined());
+var allNodeStereotypes = Source!EClass.all().select(c|c.getEAnnotation("Node").isDefined());
+var allEdgeStereotypes = Source!EClass.all().select(a|a.getEAnnotation("Edge").isDefined());
+for (anAnnotatedClass in allAnnotatedClasses) { %]
+rule [%=anAnnotatedClass.name%]UML2[%=anAnnotatedClass.name%]EMF
+	transform s: UML[%=ePackName%]![%=anAnnotatedClass.name%]
+	to t: EMF[%=ePackName%]![%=anAnnotatedClass.name%] {
+		[%
+		for (attr in anAnnotatedClass.getEAttributes()) { %]
+		t.[%=attr.name%] = s.[%=attr.name%];
+		[%
+		}
+		%]
+		[%
+		for (ref in anAnnotatedClass.getEReferences()) { %]
+		t.[%=ref.name%].addAll(s.[%=ref.name%].equivalents().flatten());
+		[%
+		}
+		%]
+	}
+	[%
+}
+%]
+

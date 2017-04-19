@@ -1,0 +1,84 @@
+[%
+var ePackName = Source!EPackage.all().first().name;
+var allNodeStereotypes = Source!EClass.all().select(c|c.getEAnnotation("Node").isDefined() or c.getEAnnotation("Edge").isDefined());
+var allClassStereotypes = Source!EClass.all().select(c|c.getEAnnotation("Node").isDefined());
+var allAssociationStereotypes = Source!EClass.all().select(a|a.getEAnnotation("Edge").isDefined());
+for (stereo in allClassStereotypes) {
+%]
+[appliedStereotypes~=[%=stereo.name%]][% if (hasMore){%], 
+[%}
+}%] { 
+	displayName:true;
+	elementIcon:false;
+	isNameWrap: true;
+	bold:true;
+	transparency:100;
+	followSVGSymbol:true;
+	displayIcon:false;
+}
+
+/* Hide compartment for all elements - just show the name and related icon. */
+Compartment {
+    visible:false;
+}
+
+/* Show symbol compartment so that text is "pushed" to upper boundary of element. */
+Compartment[kind="symbol"]  {
+    visible:true;
+}
+
+/* Default settings for "Symbol" shapes. */
+*.Symbol {
+	transparency:100;
+	followSVGSymbol:true;
+	displayIcon:false;
+}
+
+/* Turn on "floating label" for "Symbol" shapes. */
+*.Symbol > Label {
+	visible:true;
+}
+
+/* Turn off "stereotype label" for "Symbol" shapes. */
+*.Symbol > Label[type=StereotypeLabel] {
+	visible:false;
+}
+
+[%
+for (stereo in allClassStereotypes) {
+if (stereo.eAnnotations.selectOne(ean|ean.source.equals("Node")).details.get("shape").isDefined()) {
+%]
+[appliedStereotypes~=[%=stereo.name%]] {
+	svgFile: 'platform:/plugin/[%=ePackName%]/[%=stereo.eAnnotations.selectOne(ean|ean.source.equals("Node")).details.get("shape")%]';
+	/*
+	floatingLabelOffsetWidth:+23;
+    floatingLabelOffsetHeight:+80;
+	displayName:false;
+	*/
+}
+[%
+}
+}
+
+for (assoc in allAssociationStereotypes) { %]
+[appliedStereotypes~=[%=assoc.name%]][% if (hasMore){%], 
+[%}
+}
+if (allAssociationStereotypes.notEmpty()) {
+%]
+ { 
+	routing:Rectilinear;
+	roundedBendpointsRadius:10;
+}
+[%
+}
+
+for (assoc in allAssociationStereotypes) {
+	if (assoc.getEAnnotation("Edge").details.get("lineStyle").isDefined()) { %]
+		[appliedStereotypes~=[%=assoc.name%]] {
+			lineStyle: [%=assoc.getEAnnotation("Edge").details.get("lineStyle")%];
+		}
+	[%
+	}
+}
+%]

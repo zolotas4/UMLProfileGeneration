@@ -1,0 +1,532 @@
+pre {
+	var ePackName = Source!EPackage.all().first().name;
+	var profile = new Profile!Profile;
+	var alreadyCreatedImports = new Set();
+	var allTheNewClasses = new Set();
+	var ePackage = new Profile!EPackage;
+	createUMLAnnotationsForVersions(profile);
+	profile.name = ePackName;
+}
+
+rule class2stereotype 
+	transform c : Source!EClass 
+	to s : Profile!Stereotype {
+		s.name = c.name;
+		// Add stereotype to the profile
+		profile.ownedStereotype.add(s);
+		// The stereotype needs to refer to the EClass object via its eClassifiers association. 
+		// I do a workaround by creating a copy of the current EClass instance and assign it 
+		var newClass = new Profile!EClass;
+		newClass.name = c.name;
+		ePackage.eClassifiers.add(newClass);
+		var theEAnnotationOfThisStereotype = new Profile!EAnnotation;
+		theEAnnotationOfThisStereotype.source = "http://www.eclipse.org/uml2/2.0.0/UML";
+		theEAnnotationOfThisStereotype.references.add(s);
+		newClass.eAnnotations.add(theEAnnotationOfThisStereotype);
+		allTheNewClasses.add(newClass);
+		//In some scenarios, the superclass is declared in the Emfatic file after the declaration of the subclass. 
+		//For cases like this, the generalisation links (and thus the bases) cannot be created when the stereotype of the subclass is created. 
+		//We now firstly create all the stereotypes and then in the post we create the generalisation relationships and the bases.
+		//populateWithGeneralisationElements(newClass,s,c);
+		/*
+		if (c.eAnnotations.select(an | an.source.equals("Node")).notEmpty()) {
+			createTheClassStereotypeDetails(newClass,s,c);
+		} else if (c.eAnnotations.select(an | an.source.equals("Edge")).notEmpty()) {
+			createTheAssociationStereotypeDetails(newClass,s,c);
+			createOCLConstraintsForAssociation(newClass,s,c);		
+		} else {
+			createTheClassStereotypeDetails(newClass,s,c);
+		}
+*/
+		populateWithAttributes(newClass,s,c);
+	}
+	
+rule reference2stereotype 
+	transform ref : Source!EReference 
+	to s : Profile!Stereotype { 
+	guard : ref.eAnnotations.select(an | an.source.equals("Edge")).notEmpty() 
+	s.name = ref.name;
+	// Add stereotype to the profile
+	profile.ownedStereotype.add(s);
+	// The stereotype needs to refer to the EClass object via its eClassifiers association. 
+	// I do a workaround by creating a new EClass instance 
+	var newClass = new Profile!EClass;
+	newClass.name = ref.name;
+	ePackage.eClassifiers.add(newClass);
+	var theEAnnotationOfThisStereotype = new Profile!EAnnotation;
+	theEAnnotationOfThisStereotype.source = "http://www.eclipse.org/uml2/2.0.0/UML";
+	theEAnnotationOfThisStereotype.references.add(s);
+	newClass.eAnnotations.add(theEAnnotationOfThisStereotype);
+	createTheAssociationStereotypeDetails(newClass,s,ref);
+	createOCLConstraintsForAssociation(newClass,s,ref);
+}
+
+operation createOCLConstraintsForAssociation(newClass,s,c) {
+	var theValidationDelegationEAnnotation = new Profile!EAnnotation;
+	ePackage.eAnnotations.add(theValidationDelegationEAnnotation);
+	theValidationDelegationEAnnotation.source = "http://www.eclipse.org/emf/2002/Ecore";
+	var theValidationDelegationEStringToStringMapEntry = new Profile!EStringToStringMapEntry;
+	theValidationDelegationEStringToStringMapEntry.key = "validationDelegates";
+	theValidationDelegationEStringToStringMapEntry.value = "http://www.eclipse.org/emf/2002/Ecore/OCL";
+	theValidationDelegationEAnnotation.details.add(theValidationDelegationEStringToStringMapEntry);
+	createTheAssociationCheckEndTypeOCLConstraint(newClass,s,c);
+	//createTheAssociationCheckMultiplicityOCLConstraint(newClass,s,c);
+	//createTheAssociationCheckAggregationOCLConstraint(newClass,s,c);
+	createTheAssociationNavigabilityOCLConstraint(newClass,s,c);
+}
+
+operation createTheAssociationCheckAggregationOCLConstraint(newClass,s,c) {
+	// Creation of the constraint at the Stereotype (M1 level)
+	var theConstraint = new Profile!Constraint;
+	theConstraint.name = "CheckAggregation";
+	s.ownedRule.add(theConstraint);
+	theConstraint.constrainedElement.add(s);
+	var theOpaqueExpression = new Profile!OpaqueExpression;
+	theOpaqueExpression.language.add("OCL");
+	var theBodyOfTheConstraint = calculateTheBodyOfTheCheckAggregationConstraint(s,c);
+	theOpaqueExpression.body.add(theBodyOfTheConstraint);
+	theConstraint.specification = theOpaqueExpression;
+	// Creation of the constraint at the UML EAnnotation (M2 Level)
+	var theConstraintOperation = new Profile!EOperation;
+	theConstraintOperation.name = "CheckAggregation";
+	theConstraintOperation.eType = EcoreM2!EDataType.all().selectOne(edt|edt.name.equals("EBoolean"));
+	newClass.eOperations.add(theConstraintOperation);
+	createTheOCLConstraintDetails(theConstraintOperation, theBodyOfTheConstraint);
+}
+
+
+
+operation createTheAssociationCheckMultiplicityOCLConstraint(newClass,s,c) {
+	// Creation of the constraint at the Stereotype (M1 level)
+	var theConstraint = new Profile!Constraint;
+	theConstraint.name = "CheckMultiplicity";
+	s.ownedRule.add(theConstraint);
+	theConstraint.constrainedElement.add(s);
+	var theOpaqueExpression = new Profile!OpaqueExpression;
+	theOpaqueExpression.language.add("OCL");
+	var theBodyOfTheConstraint = calculateTheBodyOfTheCheckMultiplicityConstraint(s,c);
+	theOpaqueExpression.body.add(theBodyOfTheConstraint);
+	theConstraint.specification = theOpaqueExpression;
+	// Creation of the constraint at the UML EAnnotation (M2 Level)
+	var theConstraintOperation = new Profile!EOperation;
+	theConstraintOperation.name = "CheckMultiplicity";
+	theConstraintOperation.eType = EcoreM2!EDataType.all().selectOne(edt|edt.name.equals("EBoolean"));
+	newClass.eOperations.add(theConstraintOperation);
+	createTheOCLConstraintDetails(theConstraintOperation, theBodyOfTheConstraint);
+}
+
+operation createTheAssociationCheckEndTypeOCLConstraint(newClass,s,c) {
+	// Creation of the constraint at the Stereotype (M1 level)
+	var theConstraint = new Profile!Constraint;
+	theConstraint.name = "CheckEndTypes";
+	s.ownedRule.add(theConstraint);
+	theConstraint.constrainedElement.add(s);
+	var theOpaqueExpression = new Profile!OpaqueExpression;
+	theOpaqueExpression.language.add("OCL");
+	var theBodyOfTheConstraint = calculateTheBodyOfTheCheckEndTypesConstraint(s,c);
+	theOpaqueExpression.body.add(theBodyOfTheConstraint);
+	theConstraint.specification = theOpaqueExpression;
+	// Creation of the constraint at the UML EAnnotation (M2 Level)
+	var theConstraintOperation = new Profile!EOperation;
+	theConstraintOperation.name = "CheckEndTypes";
+	theConstraintOperation.eType = EcoreM2!EDataType.all().selectOne(edt|edt.name.equals("EBoolean"));
+	newClass.eOperations.add(theConstraintOperation);
+	createTheOCLConstraintDetails(theConstraintOperation, theBodyOfTheConstraint);
+}
+
+operation createTheAssociationNavigabilityOCLConstraint(newClass,s,c) {
+	// Creation of the constraint at the Stereotype (M1 level)
+	var theConstraint = new Profile!Constraint;
+	theConstraint.name = "CheckNavigability";
+	s.ownedRule.add(theConstraint);
+	theConstraint.constrainedElement.add(s);
+	var theOpaqueExpression = new Profile!OpaqueExpression;
+	theOpaqueExpression.language.add("OCL");
+	var theBodyOfTheConstraint = calculateTheBodyOfTheCheckNavigabilityConstraint(s,c);
+	theOpaqueExpression.body.add(theBodyOfTheConstraint);
+	theConstraint.specification = theOpaqueExpression;
+	// Creation of the constraint at the UML EAnnotation (M2 Level)
+	var theConstraintOperation = new Profile!EOperation;
+	theConstraintOperation.name = "CheckNavigability";
+	theConstraintOperation.eType = EcoreM2!EDataType.all().selectOne(edt|edt.name.equals("EBoolean"));
+	newClass.eOperations.add(theConstraintOperation);
+	createTheOCLConstraintDetails(theConstraintOperation, theBodyOfTheConstraint);
+}
+
+operation createTheClassStereotypeDetails(newClass,s,c) {
+	var baseClassProperty = new Profile!Property;
+	var base = "Class";
+	if (c.eAnnotations.select(an | an.source.equals("Node")).notEmpty()) {
+		base = c.getEAnnotation("Node").details.get("base").firstToUpperCase();
+	}
+	checkIfTheBaseImportExistsAndCreateIt(base);
+	baseClassProperty.name = "base_" +  base;
+	baseClassProperty.type = UMLM2!Class.all.selectOne(c|c.name = base); // This way we get the Class metaclass as declared in the UML metamodel
+	s.ownedAttribute.add(baseClassProperty);
+	// Create the base_ only if this is not already created in one of my supertypes
+	if (newClass.getEAllReferences().select(nc|nc.name = "base_" + base).isEmpty()) {
+		var theEReferenceBaseClass = new Profile!EReference;
+		theEReferenceBaseClass.name = "base_" + base;
+		theEReferenceBaseClass.lowerBound = 1;
+		theEReferenceBaseClass.ordered = false;
+		newClass.eStructuralFeatures.add(theEReferenceBaseClass);
+		var theEGenericType = new Profile!EGenericType;
+		theEReferenceBaseClass.eGenericType = theEGenericType;
+		theEGenericType.EClassifier = UMLEcore!EClass.all().selectOne(c|c.name = base);
+	}
+	var extension = new Profile!Extension;			
+	extension.name = "E_" + c.name + "_" + base + "1";
+	var extensionEnd = new Profile!ExtensionEnd;
+	extensionEnd.name = "extension_" + c.name;
+	extensionEnd.isComposite = true;
+	extensionEnd.type = s;
+	profile.packagedElements.add(extension);
+	extension.ownedEnd.add(extensionEnd);
+	extension.memberEnd.add(baseClassProperty);
+	extension.endType.add(UMLM2!Class.all.selectOne(c|c.name = base));
+	/*
+	if (c.eAnnotations.select(an | an.source.equals("Node")).notEmpty() and c.eAnnotations.selectOne(ean|ean.source.equals("Node")).details.get("shape").isDefined()) {
+		var theImage = new Profile!Image;
+		theImage.location = "platform:/plugin/" + ePackName + "/" + c.eAnnotations.selectOne(ean|ean.source.equals("Node")).details.get("shape");
+		s.icon.add(theImage);
+		var theImageEAnnotation = new Profile!EAnnotation;
+		theImageEAnnotation.source = "image_papyrus";
+		theImage.eAnnotations.add(theImageEAnnotation);
+		var theImageAnnotationEStringToStringMapEntry = new Profile!EStringToStringMapEntry;
+		theImageAnnotationEStringToStringMapEntry.key = "image_kind_key";
+		theImageAnnotationEStringToStringMapEntry.value = "shape";
+		theImageEAnnotation.details.add(theImageAnnotationEStringToStringMapEntry);
+	}
+	*/
+}
+
+operation createTheAssociationStereotypeDetails(newClass,s,c) {
+	var baseAssociationProperty = new Profile!Property;
+	var base = c.getEAnnotation("Edge").details.get("base").firstToUpperCase();
+	checkIfTheBaseImportExistsAndCreateIt(base);
+	baseAssociationProperty.name = "base_" + base;
+	baseAssociationProperty.type = UMLM2!Class.all.selectOne(c|c.name = base); // This way we get the Association metaclass as declared in the UML metamodel
+	s.ownedAttribute.add(baseAssociationProperty);
+	var theEReferenceBaseAssociation = new Profile!EReference;
+	theEReferenceBaseAssociation.name = "base_" + base;
+	theEReferenceBaseAssociation.lowerBound = 1;
+	theEReferenceBaseAssociation.ordered = false;
+	newClass.eStructuralFeatures.add(theEReferenceBaseAssociation);
+	var extension = new Profile!Extension;			
+	extension.name = "E_" + c.name + "_" + base + "1";
+	var extensionEnd = new Profile!ExtensionEnd;
+	extensionEnd.name = "extension_" + c.name;
+	extensionEnd.isComposite = true;
+	extensionEnd.type = s;
+	profile.packagedElements.add(extension);
+	extension.ownedEnd.add(extensionEnd);
+	extension.memberEnd.add(baseAssociationProperty);
+	extension.endType.add(UMLM2!Class.all.selectOne(c|c.name = base));
+	var theEGenericType = new Profile!EGenericType;
+	theEReferenceBaseAssociation.eGenericType = theEGenericType;
+	theEGenericType.EClassifier = UMLEcore!EClass.all().selectOne(c|c.name = base);
+}
+	
+operation populateWithStereotypesForEachReference(newClass,s,c) {
+	for (ref in c.eReferences) {
+		var baseAssociationProperty = new Profile!Property;
+		var base = c.getEAnnotation("Edge").details.get("base").firstToUpperCase();
+		baseAssociationProperty.name = "base_" + base;
+		baseAssociationProperty.type = UMLM2!Class.all.selectOne(c|c.name = base); // This way we get the Association metaclass as declared in the UML metamodel
+		s.ownedAttribute.add(baseAssociationProperty);
+		var theEReferenceBaseAssociation = new Profile!EReference;
+		theEReferenceBaseAssociation.name = "base_" + base;
+		theEReferenceBaseAssociation.lowerBound = 1;
+		theEReferenceBaseAssociation.ordered = false;
+		newClass.eStructuralFeatures.add(theEReferenceBaseAssociation);
+		var extension = new Profile!Extension;			
+		extension.name = "E_" + ref.name + "_"+ base + "1";
+		var extensionEnd = new Profile!ExtensionEnd;
+		extensionEnd.name = "extension_" + ref.name;
+		extensionEnd.isComposite = true;
+		extensionEnd.type = s;
+		profile.packagedElements.add(extension);
+		extension.ownedEnd.add(extensionEnd);
+		extension.memberEnd.add(baseAssociationProperty);
+		extension.endType.add(UMLM2!Class.all.selectOne(c|c.name = base));
+		var theEGenericType = new Profile!EGenericType;
+		theEReferenceBaseAssociation.eGenericType = theEGenericType;
+		theEGenericType.EClassifier = UMLEcore!EClass.all().selectOne(c|c.name = base);		
+	}
+}	
+	
+operation calculateTheBodyOfTheCheckEndTypesConstraint(s,c) {
+	var source;
+	var target;
+	var sourceAnnot;
+	var targetAnnot;
+	var base = c.getEAnnotation("Edge").details.get("base").firstToUpperCase();
+	var sourceBase = "Class";
+	var targetBase = "Class";
+	if (c.isTypeOf(EcoreM2!EClass)) {
+		sourceAnnot = c.eAnnotations.selectOne(ean|ean.source.equals("Edge")).details.get("source");
+		targetAnnot = c.eAnnotations.selectOne(ean|ean.source.equals("Edge")).details.get("target");
+		if (c.eAllReferences.selectOne(r|r.name.equals(sourceAnnot)).eType.eAnnotations.select(an | an.source.equals("Node")).notEmpty()) {
+			sourceBase = c.eReferences.selectOne(r|r.name.equals(sourceAnnot)).eType.getEAnnotation("Node").details.get("base");
+		}
+		if (c.eAllReferences.selectOne(r|r.name.equals(targetAnnot)).eType.eAnnotations.select(an | an.source.equals("Node")).notEmpty()) {
+			targetBase = c.eReferences.selectOne(r|r.name.equals(targetAnnot)).eType.getEAnnotation("Node").details.get("base");
+		}
+		source = c.eAllReferences.selectOne(r|r.name.equals(sourceAnnot)).eType.name;
+		target = c.eAllReferences.selectOne(r|r.name.equals(targetAnnot)).eType.name;
+	} else if (c.isTypeOf(EcoreM2!EReference)) {
+		if (c.eContainingClass.eAnnotations.select(an | an.source.equals("Node")).notEmpty()) {
+			sourceBase = c.eContainingClass.getEAnnotation("Node").details.get("base");
+		}
+		if (c.eType.eAnnotations.select(an | an.source.equals("Node")).notEmpty()) {
+			targetBase = c.eType.getEAnnotation("Node").details.get("base");
+		}
+		source = c.eContainingClass.name;
+		target = c.etype.name;
+	}
+	return "let source = self.base_" + base + ".endType->selectByKind(UML::" + sourceBase + "), target = self.base_" + base + ".endType->selectByKind(UML::" + targetBase + ") in source->exists(c|c.extension_" + source + "->notEmpty()) and target->exists(c|c.extension_" + target + " -> notEmpty())";
+}
+
+operation calculateTheBodyOfTheCheckNavigabilityConstraint(s,c) {
+	var source;
+	var target;
+	if (c.isTypeOf(EcoreM2!EClass)) {
+		source = c.eAnnotations.selectOne(ean|ean.source.equals("Edge")).details.get("source");
+		target = c.eAnnotations.selectOne(ean|ean.source.equals("Edge")).details.get("target");
+	} else if (c.isTypeOf(EcoreM2!EReference)) {
+		source = c.eContainingClass.name;
+		target = c.etype.name;
+	}
+	return "let memberEnds = self.base_Association.memberEnd in let " + target +"End = " +
+	"memberEnds->select(type.oclIsKindOf(UML::Class) and type.oclAsType(UML::Class).extension_" + source +"->notEmpty()), " + source + "End = " +
+	"memberEnds->select(type.oclIsKindOf(UML::Class) and type.oclAsType(UML::Class).extension_" + target + "->notEmpty())in " +
+	"if " + source + "End->notEmpty() and " + target + "End->notEmpty() then " + source + "End->first().isNavigable() = " +
+	"true and " + target + "End->first().isNavigable() = false else false endif";
+}
+
+operation calculateTheBodyOfTheCheckNavigabilityConstraintTwo(s,c) {
+	var source;
+	var target;
+	if (c.isTypeOf(EcoreM2!EClass)) {
+		source = c.eAnnotations.selectOne(ean|ean.source.equals("Edge")).details.get("source");
+		target = c.eAnnotations.selectOne(ean|ean.source.equals("Edge")).details.get("target");
+	} else if (c.isTypeOf(EcoreM2!EReference)) {
+		source = c.eContainingClass.name;
+		target = c.etype.name;
+	}
+	return "let memberEnds = self.base_Association.memberEnd in let " + target +"End = " +
+	"memberEnds->select(type.oclIsKindOf(UML::Class) and type.oclAsType(UML::Class).extension_" + source +"->notEmpty()), " + source + "End = " +
+	"memberEnds->select(type.oclIsKindOf(UML::Class) and type.oclAsType(UML::Class).extension_" + source + "->notEmpty())in " +
+	"if " + source + "End->notEmpty() and " + target + "End->notEmpty() then " + source + "End->first().isNavigable() = " +
+	"true and " + target + "End->first().isNavigable() = false else false endif";
+}
+
+operation calculateTheBodyOfTheCheckAggregationConstraint(s,c) {
+	var source;
+	var target;
+	if (c.isTypeOf(EcoreM2!EClass)) {
+		source = c.eAnnotations.selectOne(ean|ean.source.equals("Edge")).details.get("source");
+		target = c.eAnnotations.selectOne(ean|ean.source.equals("Edge")).details.get("target");
+	} else if (c.isTypeOf(EcoreM2!EReference)) {
+		source = c.eContainingClass.name;
+		target = c.etype.name;
+	}
+	return "true";
+}
+
+operation calculateTheBodyOfTheCheckMultiplicityConstraint(s,c) {
+	var source;
+	var target;
+	if (c.isTypeOf(EcoreM2!EClass)) {
+		source = c.eAnnotations.selectOne(ean|ean.source.equals("Edge")).details.get("source");
+		target = c.eAnnotations.selectOne(ean|ean.source.equals("Edge")).details.get("target");
+	} else if (c.isTypeOf(EcoreM2!EReference)) {
+		source = c.eContainingClass.name;
+		target = c.etype.name;
+	}
+	return "true";
+}
+	
+operation createUMLAnnotationsForVersions(profile) {
+	var theAnnotation = new Profile!EAnnotation;
+	theAnnotation.source = "http://www.eclipse.org/uml2/2.0.0/UML";
+	profile.eAnnotations.add(theAnnotation);
+	ePackage.name = ePackName;
+	ePackage.NsPrefix = ePackName;
+	ePackage.nsUri = "http:///schemas/" + ePackName + "/something/1";
+	theAnnotation.contents.add(ePackage);
+	var papyrusVersionEAnnotation = new Profile!EAnnotation;
+	papyrusVersionEAnnotation.source = "PapyrusVersion";
+	ePackage.eAnnotations.add(papyrusVersionEAnnotation);
+	var versionMap = new Profile!EStringToStringMapEntry;
+	versionMap.key = "Version";
+	versionMap.value = "0.0.1";
+	papyrusVersionEAnnotation.details.add(versionMap);
+	var commentMap = new Profile!EStringToStringMapEntry;
+	commentMap.key = "Comment";
+	commentMap.value = "";
+	papyrusVersionEAnnotation.details.add(commentMap);
+	var copyrightMap = new Profile!EStringToStringMapEntry;
+	copyrightMap.key = "Copyright";
+	copyrightMap.value = "";
+	papyrusVersionEAnnotation.details.add(copyrightMap);
+	var dateMap = new Profile!EStringToStringMapEntry;
+	dateMap.key = "Date";
+	dateMap.value = "2017-02-01";
+	papyrusVersionEAnnotation.details.add(dateMap);
+	var authorMap = new Profile!EStringToStringMapEntry;
+	authorMap.key = "Author";
+	authorMap.value = "";
+	papyrusVersionEAnnotation.details.add(authorMap);
+}
+
+operation createTheOCLConstraintDetails(theConstraintOperation, body) {
+	var diagnosticsParam = new Profile!EParameter;
+	diagnosticsParam.name = "diagnostics";
+	theConstraintOperation.eParameters.add(diagnosticsParam);
+	var theDiagnosticsEAnnotation = new Profile!EAnnotation;
+	diagnosticsParam.eAnnotations.add(theDiagnosticsEAnnotation);
+	theDiagnosticsEAnnotation.source = "http://www.eclipse.org/emf/2002/GenModel";
+	var theEStringMapEntryForDiagnostics = new Profile!EStringToStringMapEntry;
+	theEStringMapEntryForDiagnostics.key = "documentation";
+	theEStringMapEntryForDiagnostics.value = "The chain of diagnostics to which problems are to be appended.";
+	theDiagnosticsEAnnotation.details.add(theEStringMapEntryForDiagnostics);
+	var theDiagnosticsEGenType = new Profile!EGenericType;
+	diagnosticsParam.eGenericType = theDiagnosticsEGenType;
+	diagnosticsParam.eType = EcoreM2!EDataType.all().selectOne(edt|edt.name.equals("EDiagnosticChain"));
+	var contextParam = new Profile!EParameter;
+	contextParam.name = "context";
+	theConstraintOperation.eParameters.add(contextParam);
+	var theContextEAnnotation = new Profile!EAnnotation;
+	theContextEAnnotation.source = "http://www.eclipse.org/emf/2002/GenModel";
+	contextParam.eAnnotations.add(theContextEAnnotation);
+	var theEStringMapEntryForContext = new Profile!EStringToStringMapEntry;
+	theEStringMapEntryForContext.key = "documentation";
+	theEStringMapEntryForContext.value = "The cache of context-specific information.";
+	theContextEAnnotation.details.add(theEStringMapEntryForContext);
+	var theContextEGenType = new Profile!EGenericType;
+	theContextEGenType.eClassifier = EcoreM2!EDataType.all().selectOne(edt|edt.name.equals("EMap"));
+	var theContextMapEGenKey = new Profile!EGenericType;
+	theContextMapEGenKey.eClassifier = EcoreM2!EDataType.all().selectOne(edt|edt.name.equals("EJavaObject"));
+	var theContextMapEGenValue = new Profile!EGenericType;
+	theContextMapEGenValue.eClassifier = EcoreM2!EDataType.all().selectOne(edt|edt.name.equals("EJavaObject"));
+	contextParam.eGenericType = theContextEGenType;
+	var theConstraintEAnnotation = new Profile!EAnnotation;
+	theConstraintEAnnotation.source = "http://www.eclipse.org/emf/2002/Ecore/OCL";
+	theConstraintOperation.eAnnotations.add(theConstraintEAnnotation);
+	var theEStringToStringMapEntryForConstraint = new Profile!EStringToStringMapEntry;
+	theEStringToStringMapEntryForConstraint.key = "body";
+	theEStringToStringMapEntryForConstraint.value = body;
+	theConstraintEAnnotation.details.add(theEStringToStringMapEntryForConstraint);
+	theContextEGenType.eTypeArguments.add(theContextMapEGenKey);
+	theContextEGenType.eTypeArguments.add(theContextMapEGenValue);
+}
+
+operation populateWithAttributes(newClass,s,c) {
+	for (feat in c.eAttributes) {
+		// Creation of attribute at the Profile 
+		var attrProperty = new Profile!Property;
+		attrProperty.name = feat.name;
+		attrProperty.type = ECorePrimitiveTypes!PrimitiveType.all().selectOne(c|c.name.equals(feat.etype.name));
+		attrProperty.`default` = feat.defaultValueLiteral;
+		s.ownedAttribute.add(attrProperty);
+		// Creation of attribute at the UML EAnnotation
+		var attr = new Profile!EAttribute;
+		attr.name = feat.name;
+		attr.eType = feat.eType;
+		attr.defaultValueLiteral = feat.defaultValueLiteral;
+		newClass.eStructuralFeatures.add(attr);
+	}
+}
+
+operation populateWithReferences(newClass,s,c) {
+	for (feat in c.eReferences) {
+		// Creation of the reference at the Profile 
+		var theRefProperty = new Profile!Property;
+		theRefProperty.name = feat.name; //feat.eType.name + "End";
+		var fixedUpperBound = feat.upperBound;
+		if (feat.containment) {
+			theRefProperty.aggregation = UMLM2!AggregationKind#composite;
+			fixedUpperBound = 1;
+		} 
+		theRefProperty.lower = feat.lowerBound;
+		theRefProperty.upper = feat.upperBound;
+		s.ownedAttribute.add(theRefProperty);
+		var theAssociation = new Profile!Association;
+		profile.packagedElement.add(theAssociation);
+		var theAssociationProperty = new Profile!Property;
+		theAssociationProperty.name = c.name + "End";
+		theAssociationProperty.lower = feat.lowerBound;
+		theAssociationProperty.upper = fixedUpperBound;
+		theAssociation.ownedEnd.add(theAssociationProperty);
+		var theAssociationEAnnotation = new Profile!EAnnotation;
+		theAssociationEAnnotation.source = "org.eclipse.papyrus";
+		var theAssociationEStringToStringMapEntry = new Profile!EStringToStringMapEntry;
+		theAssociationEStringToStringMapEntry.key = "nature";
+		theAssociationEStringToStringMapEntry.value = "UML_Nature";
+		theAssociationEAnnotation.details.add(theAssociationEStringToStringMapEntry);
+		theAssociation.eAnnotations.add(theAssociationEAnnotation);
+		theAssociationProperty.type =  Profile!Stereotype.all.selectOne(ster|ster.name = feat.eContainingClass.name);
+		var theRefType = Profile!Stereotype.all.selectOne(ster|ster.name = feat.eType.name);
+		theRefProperty.type = theRefType;
+		theRefProperty.association = theAssociation;
+		// Creation of attribute at the UML EAnnotation
+		var ref = new Profile!EReference;
+		//var emfTool = new Native("org.eclipse.epsilon.emc.emf.tools.EmfTool");
+		//var ecoreUtil = emfTool.ecoreUtil;
+		//ref = ecoreUtil.copy(feat);
+		ref.eType = Profile!EClass.all.selectOne(ec|ec.name = feat.eType.name);
+		ref.lowerBound = feat.lowerBound;
+		ref.upperBound = feat.upperBound;
+		ref.name = feat.name; //feat.eType.name + "End";
+		newClass.eStructuralFeatures.add(ref);
+	}
+}
+
+operation populateWithGeneralisationElements(newClass,s,c) {
+	for (st in c.eSupertypes) {
+		var generalisation = new Profile!Generalization;
+		var myParent = Profile!Stereotype.all().selectOne(stype | stype.name.equals(st.name)); 
+		generalisation.general = myParent;
+		s.generalization.add(generalisation);
+		newClass.eSupertypes.add(ePackage.eClassifiers.selectOne(ec | ec.name.equals(st.name)));
+	}	
+}
+
+operation checkIfTheBaseImportExistsAndCreateIt(base) {
+	if(not alreadyCreatedImports.contains(base)) {
+		alreadyCreatedImports.add(base);
+		var theElementImport = new Profile!ElementImport;
+		theElementImport.`alias` = base;
+		theElementImport.importedElement = UMLM2!Class.all.selectOne(c|c.name = base);
+		profile.metaclassReference.add(theElementImport);
+		profile.elementImport.add(theElementImport);
+	}
+}
+
+post {
+	// In some scenarios, the superclass is declared in the Emfatic file after the declaration of the subclass. 
+	// For cases like this, the generalisation links (and thus the bases) cannot be created when the stereotype of the subclass is created. 
+	// We now firstly create all the stereotypes and then in the post we create the generalisation relationships and the bases.
+	// We don't create the bases together with the generalisations but we loop through them again because we first need to create the whole hierarchy
+	// (e.g., subclass->superclass->superclass->...->superclass) as the base might be included in a super-superclass that the generalisation link hasn't yet been created
+	for (c in Source!EClass.all()) {	
+		var theStereotype = Profile!Stereotype.all().selectOne(s|s.name.equals(c.name));
+		var theNewClass = allTheNewClasses.selectOne(nc|nc.name.equals(c.name));
+		populateWithGeneralisationElements(theNewClass,theStereotype,c);
+		populateWithReferences(theNewClass,theStereotype,c);
+			
+	}
+	for (c in Source!EClass.all()) {	
+		var theStereotype = Profile!Stereotype.all().selectOne(s|s.name.equals(c.name));
+		var theNewClass = allTheNewClasses.selectOne(nc|nc.name.equals(c.name));
+		if (c.eAnnotations.select(an | an.source.equals("Node")).notEmpty()) {
+			createTheClassStereotypeDetails(theNewClass,theStereotype,c);
+		} else if (c.eAnnotations.select(an | an.source.equals("Edge")).notEmpty()) {
+			createTheAssociationStereotypeDetails(theNewClass,theStereotype,c);
+			createOCLConstraintsForAssociation(theNewClass,theStereotype,c);		
+		} else {
+			createTheClassStereotypeDetails(theNewClass,theStereotype,c);
+		}
+	}
+}

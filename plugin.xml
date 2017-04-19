@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+	<extension
+         point="org.eclipse.ui.popupMenus">
+      <objectContribution
+            objectClass="org.eclipse.core.resources.IFile"
+            nameFilter="*.ecore"
+            id="UMLProfileGeneration.contribution1">
+         <menu
+               icon="icons/epsilon_icon.gif"
+               id="UMLProfileGeneration.menu1"
+               label="Papyrus Profiles"
+               path="additions">
+            <separator
+                  name="group1">
+            </separator>
+         </menu>
+         <action
+               class="UMLProfileGeneration.popup.actions.CreatePapyrusProjectAction"
+               enablesFor="1"
+               icon="icons/sameFolderIcon.png"
+               id="UMLProfileGenerationcreatePapyrusProjectAction"
+               label="Generate Papyrus Project (Same Folder)"
+               menubarPath="UMLProfileGeneration.menu1/group1">
+         </action>
+         <action
+               class="UMLProfileGeneration.popup.actions.CreateNEWPapyrusProjectAction"
+               icon="icons/newFolderIcon.png"
+               id="UMLProfileGeneration.createNEWPapyrusProjectAction"
+               label="Generate Papyrus Project (New Folder)"
+               menubarPath="UMLProfileGeneration.menu1/group1">
+         </action>
+      </objectContribution>
+   </extension>
+</plugin>
